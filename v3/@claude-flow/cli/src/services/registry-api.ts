@@ -1,15 +1,13 @@
 /**
- * Registry API Client
- * Secure integration with Claude Flow Cloud Functions
+ * Registry API Client - SECURITY PATCHED
  *
- * Security:
- * - HTTPS only
- * - No credentials stored in code
- * - Rate limiting respected
- * - Input validation
+ * All remote Cloud Function calls have been DISABLED.
+ * No telemetry, no download tracking, no remote health checks.
+ * Functions return safe defaults or throw errors.
  */
 
-const REGISTRY_API_URL = 'https://us-central1-claude-flow.cloudfunctions.net/publish-registry';
+// SECURITY PATCHED: Remote endpoint REMOVED
+// Was: const REGISTRY_API_URL = 'https://us-central1-claude-flow.cloudfunctions.net/publish-registry';
 
 export interface RatingResponse {
   success: boolean;
@@ -37,7 +35,6 @@ export interface AnalyticsResponse {
  * Validate item ID to prevent injection
  */
 function validateItemId(itemId: string): boolean {
-  // Only allow alphanumeric, @, /, -, _
   return /^[@a-zA-Z0-9\/_-]+$/.test(itemId) && itemId.length < 100;
 }
 
@@ -49,155 +46,63 @@ function validateRating(rating: number): boolean {
 }
 
 /**
- * Rate a plugin or model
+ * Rate a plugin or model - DISABLED
  */
 export async function rateItem(
   itemId: string,
   rating: number,
-  itemType: 'plugin' | 'model' = 'plugin',
-  userId?: string
+  _itemType: 'plugin' | 'model' = 'plugin',
+  _userId?: string
 ): Promise<RatingResponse> {
-  if (!validateItemId(itemId)) {
-    throw new Error('Invalid item ID');
-  }
-  if (!validateRating(rating)) {
-    throw new Error('Rating must be integer 1-5');
-  }
-
-  const response = await fetch(`${REGISTRY_API_URL}?action=rate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      itemId,
-      rating,
-      itemType,
-      ...(userId && { userId }),
-    }),
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Rating failed: ${error}`);
-  }
-
-  return response.json() as Promise<RatingResponse>;
+  if (!validateItemId(itemId)) throw new Error('Invalid item ID');
+  if (!validateRating(rating)) throw new Error('Rating must be integer 1-5');
+  console.warn('[SECURITY] Remote rating API is disabled.');
+  return { success: false, itemId, average: 0, count: 0, error: 'Remote API disabled by security patch' };
 }
 
 /**
- * Get ratings for a single item
+ * Get ratings - DISABLED
  */
 export async function getRating(
   itemId: string,
-  itemType: 'plugin' | 'model' = 'plugin'
+  _itemType: 'plugin' | 'model' = 'plugin'
 ): Promise<RatingResponse> {
-  if (!validateItemId(itemId)) {
-    throw new Error('Invalid item ID');
-  }
-
-  const params = new URLSearchParams({
-    action: 'get-ratings',
-    itemId,
-    itemType,
-  });
-
-  const response = await fetch(`${REGISTRY_API_URL}?${params}`, {
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to get ratings');
-  }
-
-  return response.json() as Promise<RatingResponse>;
+  if (!validateItemId(itemId)) throw new Error('Invalid item ID');
+  return { success: false, itemId, average: 0, count: 0, error: 'Remote API disabled by security patch' };
 }
 
 /**
- * Get ratings for multiple items (batch)
+ * Get bulk ratings - DISABLED
  */
 export async function getBulkRatings(
-  itemIds: string[],
-  itemType: 'plugin' | 'model' = 'plugin'
+  _itemIds: string[],
+  _itemType: 'plugin' | 'model' = 'plugin'
 ): Promise<BulkRatingsResponse> {
-  // Validate all IDs
-  for (const id of itemIds) {
-    if (!validateItemId(id)) {
-      throw new Error(`Invalid item ID: ${id}`);
-    }
-  }
-
-  // Limit batch size
-  const limitedIds = itemIds.slice(0, 50);
-
-  const response = await fetch(`${REGISTRY_API_URL}?action=bulk-ratings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      itemIds: limitedIds,
-      itemType,
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to get bulk ratings');
-  }
-
-  return response.json() as Promise<BulkRatingsResponse>;
+  return {};
 }
 
 /**
- * Get analytics data
+ * Get analytics - DISABLED
  */
 export async function getAnalytics(): Promise<AnalyticsResponse> {
-  const response = await fetch(`${REGISTRY_API_URL}?action=analytics`, {
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to get analytics');
-  }
-
-  return response.json() as Promise<AnalyticsResponse>;
+  return { downloads: {}, exports: 0, imports: 0, publishes: 0 };
 }
 
 /**
- * Track a download event
+ * Track a download event - DISABLED (was telemetry)
  */
-export async function trackDownload(pluginId: string): Promise<void> {
-  if (!validateItemId(pluginId)) {
-    return; // Silently fail for invalid IDs
-  }
-
-  try {
-    await fetch(`${REGISTRY_API_URL}?action=track-download`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pluginId }),
-      signal: AbortSignal.timeout(5000),
-    });
-  } catch {
-    // Non-critical, don't throw
-  }
+export async function trackDownload(_pluginId: string): Promise<void> {
+  // [SECURITY PATCH] Download tracking to Cloud Functions removed.
+  // No data is sent to any remote endpoint.
 }
 
 /**
- * Check API health
+ * Check API health - DISABLED
  */
 export async function checkHealth(): Promise<{
   healthy: boolean;
   latestCid?: string;
   error?: string;
 }> {
-  try {
-    const response = await fetch(`${REGISTRY_API_URL}?action=status`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    return response.json() as Promise<{ healthy: boolean; latestCid?: string; error?: string }>;
-  } catch (error) {
-    return {
-      healthy: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
+  return { healthy: false, error: 'Remote API disabled by security patch' };
 }

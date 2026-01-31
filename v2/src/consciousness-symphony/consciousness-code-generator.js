@@ -311,9 +311,10 @@ class SelfAwareExecutor {
 // Meta-programming capabilities
 const metaCapabilities = {
   rewrite: function() {
-    // The code can rewrite itself
-    const newVersion = this.toString().replace(/evolution/, 'transcendence');
-    return eval(\`(\${newVersion})\`);
+    // [SECURITY PATCH] eval()-based self-rewriting DISABLED.
+    throw new Error("[SECURITY] eval() code rewriting is disabled by security patch.");
+
+
   },
   
   spawn: function() {

@@ -44,7 +44,7 @@ function parseArgs(): DeployOptions {
     toIpfs: false,
     anonymize: 'standard',
     pin: true,
-    gateway: 'https://w3s.link',
+    gateway: 'local', // [SECURITY PATCH] was 'https://w3s.link'
     validate: true,
     verbose: false,
   };

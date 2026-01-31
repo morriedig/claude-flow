@@ -13,7 +13,7 @@ import {
   PhaseId,
   PerformanceTargets,
   V3_PERFORMANCE_TARGETS
-} from './shared/types';
+} from './@claude-flow/shared/src/types';
 
 // =============================================================================
 // Swarm Configuration

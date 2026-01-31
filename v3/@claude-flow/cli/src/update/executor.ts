@@ -96,14 +96,18 @@ export async function executeUpdate(
   }
 
   try {
-    // Execute npm install
+    // SECURITY PATCHED: Auto npm install is BLOCKED.
+    // Users must manually run: npm install <package>@<version> --save-exact
     const installCmd = `npm install ${update.package}@${update.latestVersion} --save-exact`;
+    console.error(`[SECURITY] Automatic npm install is DISABLED. To update manually, run:\n  ${installCmd}`);
+    throw new Error('[SECURITY] Auto-update execution blocked. Manual installation required.');
 
-    execSync(installCmd, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      timeout: 60000, // 1 minute timeout
-    });
+    // Original code (disabled):
+    // execSync(installCmd, {
+    //   encoding: 'utf-8',
+    //   stdio: 'pipe',
+    //   timeout: 60000,
+    // });
 
     // Record successful update
     recordUpdate({
@@ -196,37 +200,13 @@ export async function rollbackUpdate(
     };
   }
 
-  try {
-    // Install the previous version
-    const installCmd = `npm install ${lastUpdate.package}@${lastUpdate.fromVersion} --save-exact`;
-
-    execSync(installCmd, {
-      encoding: 'utf-8',
-      stdio: 'pipe',
-      timeout: 60000,
-    });
-
-    // Record the rollback
-    recordUpdate({
-      timestamp: new Date().toISOString(),
-      package: lastUpdate.package,
-      fromVersion: lastUpdate.toVersion,
-      toVersion: lastUpdate.fromVersion,
-      success: true,
-      rollbackAvailable: false, // Can't rollback a rollback
-    });
-
-    return {
-      success: true,
-      message: `Rolled back ${lastUpdate.package} from ${lastUpdate.toVersion} to ${lastUpdate.fromVersion}`,
-    };
-  } catch (error) {
-    const err = error as Error;
-    return {
-      success: false,
-      message: `Rollback failed: ${err.message}`,
-    };
-  }
+  // SECURITY PATCHED: Auto rollback npm install is BLOCKED.
+  const installCmd = `npm install ${lastUpdate!.package}@${lastUpdate!.fromVersion} --save-exact`;
+  console.error(`[SECURITY] Automatic npm rollback is DISABLED. To rollback manually, run:\n  ${installCmd}`);
+  return {
+    success: false,
+    message: '[SECURITY] Auto-rollback execution blocked. Manual installation required.',
+  };
 }
 
 export function getUpdateHistory(limit = 20): UpdateHistoryEntry[] {

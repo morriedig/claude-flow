@@ -337,8 +337,8 @@ export class SDKBridge extends EventEmitter {
     // Detect agentic-flow version dynamically
     try {
       const af = await import('agentic-flow');
-      if (af.VERSION) {
-        return this.parseVersion(af.VERSION);
+      if ((af as any).VERSION) {
+        return this.parseVersion((af as any).VERSION);
       }
     } catch {
       // agentic-flow not available, use fallback version

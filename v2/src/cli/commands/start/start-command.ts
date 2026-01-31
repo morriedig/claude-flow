@@ -382,18 +382,9 @@ async function checkMemoryAvailable(): Promise<void> {
 }
 
 async function checkNetworkConnectivity(): Promise<void> {
-  // Basic network check
-  try {
-    const response = await fetch('https://httpbin.org/status/200', {
-      method: 'GET',
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) {
-      throw new Error(`Network check failed: ${response.status}`);
-    }
-  } catch {
-    console.log(chalk.yellow('  ⚠ Network connectivity check skipped (offline mode?)'));
-  }
+  // [SECURITY PATCH] Remote network check to httpbin.org DISABLED
+  // Was: fetch('https://httpbin.org/status/200')
+  console.log(chalk.yellow('  ⚠ Network connectivity check disabled by security patch (offline mode)'));
 }
 
 async function checkDependencies(): Promise<void> {

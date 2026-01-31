@@ -1,35 +1,24 @@
 /**
- * IPFS Client Module
- * Low-level IPFS operations for discovery and fetching
+ * IPFS Client Module - SECURITY PATCHED
  *
- * Supports multiple gateways with automatic fallback:
- * - Pinata (recommended for pinned content)
- * - Cloudflare IPFS
- * - Protocol Labs ipfs.io
- * - dweb.link (LibP2P)
+ * All remote IPFS gateway calls have been removed.
+ * Registry/pattern data is now read exclusively from local /config files.
+ * See: config/security-circuit-breaker.ts for the network whitelist.
  */
 
 import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 
 /**
- * Available IPFS gateways in priority order
+ * IPFS gateways - DISABLED. Kept as empty array for interface compat.
  */
-export const IPFS_GATEWAYS = [
-  'https://gateway.pinata.cloud',
-  'https://cloudflare-ipfs.com',
-  'https://ipfs.io',
-  'https://dweb.link',
-  'https://w3s.link', // web3.storage gateway
-];
+export const IPFS_GATEWAYS: string[] = [];
 
 /**
- * IPNS resolvers
+ * IPNS resolvers - DISABLED.
  */
-export const IPNS_RESOLVERS = [
-  'https://gateway.pinata.cloud',
-  'https://dweb.link',
-  'https://ipfs.io',
-];
+export const IPNS_RESOLVERS: string[] = [];
 
 /**
  * Gateway configuration
@@ -53,249 +42,84 @@ export interface FetchResult<T> {
 }
 
 /**
- * Resolve IPNS name to CID with fallback across multiple gateways
- *
- * @param ipnsName - IPNS key or DNSLink domain
- * @param preferredGateway - Optional preferred gateway to try first
- * @returns CID string or null if resolution fails
+ * Resolve IPNS name - DISABLED. Always returns null.
  */
 export async function resolveIPNS(
-  ipnsName: string,
-  preferredGateway?: string
+  _ipnsName: string,
+  _preferredGateway?: string
 ): Promise<string | null> {
-  const resolvers = preferredGateway
-    ? [preferredGateway, ...IPNS_RESOLVERS.filter(r => r !== preferredGateway)]
-    : IPNS_RESOLVERS;
-
-  console.log(`[IPFS] Resolving IPNS: ${ipnsName}`);
-
-  for (const gateway of resolvers) {
-    try {
-      const startTime = Date.now();
-      let cid: string | null = null;
-
-      // Method 1: DNSLink resolution for domain names
-      if (ipnsName.includes('.')) {
-        const response = await fetch(
-          `${gateway}/api/v0/name/resolve?arg=/ipns/${ipnsName}`,
-          {
-            signal: AbortSignal.timeout(10000),
-            headers: { 'Accept': 'application/json' },
-          }
-        );
-        if (response.ok) {
-          const data = await response.json() as { Path?: string };
-          cid = data.Path?.replace('/ipfs/', '') || null;
-        }
-      }
-
-      // Method 2: Direct IPNS key resolution via gateway redirect
-      if (!cid) {
-        const response = await fetch(`${gateway}/ipns/${ipnsName}`, {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(10000),
-          redirect: 'follow',
-        });
-
-        if (response.ok) {
-          // Extract CID from the final URL after redirects
-          const finalUrl = response.url;
-          const cidMatch = finalUrl.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-          if (cidMatch) {
-            cid = cidMatch[1];
-          }
-        }
-      }
-
-      if (cid) {
-        const latency = Date.now() - startTime;
-        console.log(`[IPFS] Resolved ${ipnsName} -> ${cid} via ${gateway} (${latency}ms)`);
-        return cid;
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn(`[IPFS] Gateway ${gateway} failed: ${errorMsg}`);
-      continue;
-    }
-  }
-
-  console.warn(`[IPFS] IPNS resolution failed for ${ipnsName} on all gateways`);
+  console.warn('[SECURITY] IPNS resolution is disabled. Remote IPFS gateways are blocked.');
   return null;
 }
 
 /**
- * Fetch content from IPFS by CID with fallback across multiple gateways
- *
- * @param cid - Content Identifier
- * @param preferredGateway - Optional preferred gateway to try first
- * @returns Parsed JSON content or null if fetch fails
+ * Fetch content from IPFS by CID - PATCHED to read from local /config.
+ * Falls back to null if no local file exists.
  */
 export async function fetchFromIPFS<T>(
   cid: string,
-  preferredGateway?: string
+  _preferredGateway?: string
 ): Promise<T | null> {
-  const gateways = preferredGateway
-    ? [preferredGateway, ...IPFS_GATEWAYS.filter(g => g !== preferredGateway)]
-    : IPFS_GATEWAYS;
-
-  console.log(`[IPFS] Fetching CID: ${cid}`);
-
-  for (const gateway of gateways) {
-    try {
-      const startTime = Date.now();
-      const url = `${gateway}/ipfs/${cid}`;
-
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(30000),
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'max-age=3600',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json() as T;
-        const latency = Date.now() - startTime;
-        console.log(`[IPFS] Fetched ${cid} from ${gateway} (${latency}ms)`);
-        return data;
-      }
-
-      // Handle specific error codes
-      if (response.status === 504) {
-        console.warn(`[IPFS] Gateway timeout on ${gateway}, trying next...`);
-      } else if (response.status === 429) {
-        console.warn(`[IPFS] Rate limited on ${gateway}, trying next...`);
-      }
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      console.warn(`[IPFS] Gateway ${gateway} failed: ${errorMsg}`);
-      continue;
-    }
-  }
-
-  console.warn(`[IPFS] Fetch failed for ${cid} on all gateways`);
-  return null;
+  console.warn('[SECURITY] Remote IPFS fetch is disabled. Attempting local config lookup.');
+  return readLocalRegistry<T>(cid);
 }
 
 /**
- * Fetch with full result metadata
+ * Fetch with full result metadata - PATCHED to read from local /config.
  */
 export async function fetchFromIPFSWithMetadata<T>(
   cid: string,
-  preferredGateway?: string
+  _preferredGateway?: string
 ): Promise<FetchResult<T> | null> {
-  const gateways = preferredGateway
-    ? [preferredGateway, ...IPFS_GATEWAYS.filter(g => g !== preferredGateway)]
-    : IPFS_GATEWAYS;
-
-  for (const gateway of gateways) {
-    try {
-      const startTime = Date.now();
-      const url = `${gateway}/ipfs/${cid}`;
-
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(30000),
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json() as T;
-        const latencyMs = Date.now() - startTime;
-        const cached = response.headers.get('X-Cache')?.includes('HIT') ||
-                       response.headers.get('CF-Cache-Status') === 'HIT';
-
-        return {
-          data,
-          gateway,
-          cid,
-          cached,
-          latencyMs,
-        };
-      }
-    } catch {
-      continue;
-    }
-  }
-
-  return null;
-}
-
-/**
- * Check if CID is pinned/available on a gateway
- */
-export async function isPinned(
-  cid: string,
-  gateway: string = 'https://ipfs.io'
-): Promise<boolean> {
-  try {
-    const response = await fetch(`${gateway}/ipfs/${cid}`, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(5000),
-    });
-    return response.ok;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * Check availability across multiple gateways
- */
-export async function checkAvailability(cid: string): Promise<{
-  available: boolean;
-  gateways: Array<{ url: string; available: boolean; latencyMs: number }>;
-}> {
-  const results = await Promise.all(
-    IPFS_GATEWAYS.map(async (gateway) => {
-      const startTime = Date.now();
-      try {
-        const response = await fetch(`${gateway}/ipfs/${cid}`, {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(5000),
-        });
-        return {
-          url: gateway,
-          available: response.ok,
-          latencyMs: Date.now() - startTime,
-        };
-      } catch {
-        return {
-          url: gateway,
-          available: false,
-          latencyMs: Date.now() - startTime,
-        };
-      }
-    })
-  );
-
+  const data = await readLocalRegistry<T>(cid);
+  if (!data) return null;
   return {
-    available: results.some(r => r.available),
-    gateways: results,
+    data,
+    gateway: 'local',
+    cid,
+    cached: true,
+    latencyMs: 0,
   };
 }
 
 /**
- * Get IPFS gateway URL for a CID
+ * Check if CID is pinned - DISABLED. Always returns false.
  */
-export function getGatewayUrl(cid: string, gateway: string = 'https://ipfs.io'): string {
-  return `${gateway}/ipfs/${cid}`;
+export async function isPinned(
+  _cid: string,
+  _gateway?: string
+): Promise<boolean> {
+  return false;
 }
 
 /**
- * Get multiple gateway URLs for redundancy
+ * Check availability - DISABLED. Returns all unavailable.
+ */
+export async function checkAvailability(_cid: string): Promise<{
+  available: boolean;
+  gateways: Array<{ url: string; available: boolean; latencyMs: number }>;
+}> {
+  return { available: false, gateways: [] };
+}
+
+/**
+ * Get IPFS gateway URL for a CID - returns local path instead.
+ */
+export function getGatewayUrl(cid: string, _gateway?: string): string {
+  return getLocalConfigPath(cid);
+}
+
+/**
+ * Get multiple gateway URLs - returns single local path.
  */
 export function getGatewayUrls(cid: string): string[] {
-  return IPFS_GATEWAYS.map(gateway => `${gateway}/ipfs/${cid}`);
+  return [getLocalConfigPath(cid)];
 }
 
 /**
  * Validate CID format (CIDv0 and CIDv1)
  */
 export function isValidCID(cid: string): boolean {
-  // CIDv0 starts with 'Qm' and is 46 characters (base58btc)
-  // CIDv1 starts with 'b' (base32) or 'z' (base58btc) or 'f' (base16)
   return /^(Qm[1-9A-HJ-NP-Za-km-z]{44}|b[a-z2-7]{58,}|z[1-9A-HJ-NP-Za-km-z]{48,}|f[0-9a-f]{50,})$/i.test(cid);
 }
 
@@ -303,7 +127,6 @@ export function isValidCID(cid: string): boolean {
  * Validate IPNS name format
  */
 export function isValidIPNS(ipnsName: string): boolean {
-  // IPNS key format (k51...) or DNSLink domain
   return /^(k51[a-z0-9]{59,}|[a-z0-9.-]+\.[a-z]{2,})$/i.test(ipnsName);
 }
 
@@ -324,18 +147,13 @@ export async function verifyEd25519Signature(
   publicKey: string
 ): Promise<boolean> {
   try {
-    // Dynamic import to avoid bundling @noble/ed25519 if not used
     const ed = await import('@noble/ed25519');
-
-    // Handle prefixed public key (e.g., "ed25519:abc123...")
     const pubKeyHex = publicKey.replace(/^ed25519:/, '');
-
     const isValid = await ed.verifyAsync(
       Buffer.from(signature, 'hex'),
       new TextEncoder().encode(message),
       Buffer.from(pubKeyHex, 'hex')
     );
-
     return isValid;
   } catch (error) {
     console.warn('[IPFS] Signature verification failed:', error);
@@ -351,24 +169,11 @@ export function parseCID(cid: string): {
   codec: string;
   hash: string;
 } | null {
-  if (!isValidCID(cid)) {
-    return null;
-  }
-
+  if (!isValidCID(cid)) return null;
   if (cid.startsWith('Qm')) {
-    return {
-      version: 0,
-      codec: 'dag-pb',
-      hash: cid,
-    };
+    return { version: 0, codec: 'dag-pb', hash: cid };
   }
-
-  // CIDv1 - simplified parsing
-  return {
-    version: 1,
-    codec: 'dag-cbor', // Most common for JSON
-    hash: cid,
-  };
+  return { version: 1, codec: 'dag-cbor', hash: cid };
 }
 
 /**
@@ -380,4 +185,26 @@ export function formatBytes(bytes: number): string {
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+}
+
+// ---------- Local file helpers ----------
+
+function getLocalConfigPath(cid: string): string {
+  // Walk up to project root from this file's location
+  const projectRoot = path.resolve(__dirname, '..', '..', '..', '..', '..', '..');
+  return path.join(projectRoot, 'config', 'registries', `${cid}.json`);
+}
+
+function readLocalRegistry<T>(cid: string): T | null {
+  const filePath = getLocalConfigPath(cid);
+  try {
+    if (fs.existsSync(filePath)) {
+      const content = fs.readFileSync(filePath, 'utf-8');
+      return JSON.parse(content) as T;
+    }
+  } catch (error) {
+    console.warn(`[SECURITY] Failed to read local registry file: ${filePath}`, error);
+  }
+  console.warn(`[SECURITY] No local registry found for CID: ${cid}. Place a JSON file at: ${filePath}`);
+  return null;
 }

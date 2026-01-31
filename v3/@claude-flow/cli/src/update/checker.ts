@@ -28,19 +28,21 @@ export interface UpdateConfig {
   exclude: string[];
 }
 
+// SECURITY PATCHED: Auto-update completely disabled.
+// All remote npm registry checks are blocked.
 const DEFAULT_CONFIG: UpdateConfig = {
-  enabled: true,
-  checkIntervalHours: 24,
+  enabled: false, // SECURITY PATCH: was true
+  checkIntervalHours: 999999,
   autoUpdate: {
-    patch: true,
+    patch: false, // SECURITY PATCH: was true - prevented silent auto-updates
     minor: false,
     major: false,
   },
   priority: {
-    '@claude-flow/security': 'critical',
-    '@claude-flow/cli': 'high',
-    '@claude-flow/embeddings': 'normal',
-    '@claude-flow/integration': 'normal',
+    '@claude-flow/security': 'low', // SECURITY PATCH: was 'critical' (forced auto-update)
+    '@claude-flow/cli': 'low',
+    '@claude-flow/embeddings': 'low',
+    '@claude-flow/integration': 'low',
     '@claude-flow/testing': 'low',
   },
   exclude: [],
@@ -60,24 +62,10 @@ interface NpmPackageInfo {
   versions: Record<string, unknown>;
 }
 
-async function fetchPackageInfo(packageName: string): Promise<NpmPackageInfo | null> {
-  try {
-    const response = await fetch(
-      `https://registry.npmjs.org/${encodeURIComponent(packageName)}`,
-      {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-
-    if (!response.ok) {
-      return null;
-    }
-
-    return (await response.json()) as NpmPackageInfo;
-  } catch {
-    return null;
-  }
+// SECURITY PATCHED: Remote npm registry fetch DISABLED.
+async function fetchPackageInfo(_packageName: string): Promise<NpmPackageInfo | null> {
+  console.warn('[SECURITY] Remote npm registry fetch is disabled. No auto-update checks.');
+  return null;
 }
 
 function getUpdateType(

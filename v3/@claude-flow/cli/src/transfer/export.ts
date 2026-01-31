@@ -30,7 +30,7 @@ export async function exportPatterns(
     stripPaths = false,
     toIpfs = false,
     pin = true,
-    gateway = 'https://w3s.link',
+    gateway = 'local', // [SECURITY PATCH] was 'https://w3s.link'
   } = options;
 
   // Step 1: Scan for PII
@@ -151,7 +151,7 @@ export async function quickExportToIPFS(
   return exportPatterns(cfp, {
     toIpfs: true,
     pin: options.pin ?? true,
-    gateway: options.gateway ?? 'https://w3s.link',
+    gateway: options.gateway ?? 'local', // [SECURITY PATCH] was 'https://w3s.link'
     format: 'json',
     anonymize: 'strict',
   });

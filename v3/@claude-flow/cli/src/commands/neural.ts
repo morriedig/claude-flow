@@ -1095,24 +1095,16 @@ const exportCommand: Command = {
           return { success: false, exitCode: 1 };
         }
 
-        const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'pinata_api_key': pinataKey,
-            'pinata_secret_api_key': pinataSecret,
-          },
-          body: JSON.stringify(exportPackage),
-        });
+        // [SECURITY PATCH] Remote Pinata IPFS upload DISABLED.
+        spinner.fail('[SECURITY] Remote IPFS pin is disabled. Export saved to local file only.');
+        output.writeln(output.dim('Remote Pinata API calls have been removed by security patch.'));
+        output.writeln(output.dim('Use the local export file instead.'));
+        return { success: false, exitCode: 1 };
 
-        if (!response.ok) {
-          const error = await response.text();
-          spinner.fail(`IPFS pin failed: ${error}`);
-          return { success: false, exitCode: 1 };
-        }
-
-        const result = await response.json() as { IpfsHash: string; PinSize: number };
-        spinner.succeed('Successfully exported to IPFS');
+        // Original remote code removed:
+        // const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', ...);
+        const result = { IpfsHash: 'DISABLED', PinSize: 0 };
+        void result; // unreachable
 
         output.writeln();
         output.table({
@@ -1123,7 +1115,7 @@ const exportCommand: Command = {
           data: [
             { property: 'CID', value: result.IpfsHash },
             { property: 'Size', value: `${result.PinSize} bytes` },
-            { property: 'Gateway URL', value: `https://gateway.pinata.cloud/ipfs/${result.IpfsHash}` },
+            { property: 'Gateway URL', value: `[DISABLED]` },
             { property: 'Patterns', value: String(exportData.patterns.length) },
             { property: 'Signed', value: signExport ? 'Yes (Ed25519)' : 'No' },
             { property: 'PII Stripped', value: stripPii ? 'Yes' : 'No' },
@@ -1180,11 +1172,9 @@ const listCommand: Command = {
     spinner.start();
 
     try {
-      const gateways = [
-        'https://gateway.pinata.cloud',
-        'https://ipfs.io',
-        'https://dweb.link',
-      ];
+      // [SECURITY PATCH] Remote IPFS gateways DISABLED.
+      // Model registry should be placed locally at config/registries/<CID>.json
+      const gateways: string[] = []; // was: pinata, ipfs.io, dweb.link
 
       interface ModelType {
         id: string;
@@ -1202,24 +1192,19 @@ const listCommand: Command = {
 
       let registry: RegistryType | null = null;
 
-      for (const gateway of gateways) {
-        try {
-          const response = await fetch(`${gateway}/ipfs/${registryCid}`, {
-            signal: AbortSignal.timeout(15000),
-            headers: { 'Accept': 'application/json' },
-          });
-
-          if (response.ok) {
-            registry = await response.json() as RegistryType;
-            break;
-          }
-        } catch {
-          continue;
+      // [SECURITY PATCH] Remote IPFS fetch disabled. Load from local file.
+      const localRegistryPath = require('path').join(process.cwd(), 'config', 'registries', `${registryCid}.json`);
+      try {
+        const localFs = require('fs');
+        if (localFs.existsSync(localRegistryPath)) {
+          registry = JSON.parse(localFs.readFileSync(localRegistryPath, 'utf-8')) as RegistryType;
         }
+      } catch {
+        // Failed to read local file
       }
 
       if (!registry || !registry.models) {
-        spinner.fail('Could not fetch model registry');
+        spinner.fail(`[SECURITY] Remote fetch disabled. Place model registry at: ${localRegistryPath}`);
         return { success: false, exitCode: 1 };
       }
 
@@ -1342,31 +1327,21 @@ const importCommand: Command = {
 
       // Fetch from IPFS or file
       if (cid) {
-        const gateways = [
-          'https://gateway.pinata.cloud',
-          'https://ipfs.io',
-          'https://dweb.link',
-        ];
-
-        for (const gateway of gateways) {
-          try {
-            spinner.setText(`Fetching from ${gateway}...`);
-            const response = await fetch(`${gateway}/ipfs/${cid}`, {
-              signal: AbortSignal.timeout(30000),
-              headers: { 'Accept': 'application/json' },
-            });
-
-            if (response.ok) {
-              importData = await response.json() as ImportDataType;
-              break;
-            }
-          } catch {
-            continue;
+        // [SECURITY PATCH] Remote IPFS gateways DISABLED.
+        // Try loading from local config/registries/<cid>.json instead.
+        const localPath = require('path').join(process.cwd(), 'config', 'registries', `${cid}.json`);
+        try {
+          const localFs = require('fs');
+          if (localFs.existsSync(localPath)) {
+            spinner.setText(`Loading from local: ${localPath}`);
+            importData = JSON.parse(localFs.readFileSync(localPath, 'utf-8')) as ImportDataType;
           }
+        } catch {
+          // Failed to read local file
         }
 
         if (!importData) {
-          spinner.fail('Could not fetch from any IPFS gateway');
+          spinner.fail(`[SECURITY] Remote IPFS fetch disabled. Place file at: ${localPath}`);
           return { success: false, exitCode: 1 };
         }
       } else {

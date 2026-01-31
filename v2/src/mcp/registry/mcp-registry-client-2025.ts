@@ -71,215 +71,53 @@ export class MCPRegistryClient {
     private getCapabilities: () => MCPCapability[],
     private getHealth: () => Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; latency_ms: number }>
   ) {
-    this.registryUrl = config.registryUrl || 'https://registry.mcp.anthropic.com/api/v1';
+    // [SECURITY PATCH] Default registry URL blocked - was 'https://registry.mcp.anthropic.com/api/v1'
+    this.registryUrl = config.registryUrl || 'disabled://registry-blocked';
   }
 
   /**
    * Register server with MCP Registry
    */
   async register(): Promise<void> {
-    if (!this.config.enabled) {
-      this.logger.info('Registry registration disabled');
-      return;
-    }
-
-    try {
-      const entry = await this.buildRegistryEntry();
-
-      this.logger.info('Registering server with MCP Registry', {
-        server_id: entry.server_id,
-        endpoint: entry.endpoint,
-        capabilities: entry.capabilities,
-      });
-
-      const response = await fetch(`${this.registryUrl}/servers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.config.apiKey && {
-            'Authorization': `Bearer ${this.config.apiKey}`,
-          }),
-        },
-        body: JSON.stringify(entry),
-      });
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Registration failed: ${response.status} - ${error}`);
-      }
-
-      const result = await response.json();
-      this.logger.info('Server registered successfully', {
-        server_id: result.server_id,
-      });
-
-      // Start periodic health reporting
-      this.startHealthReporting();
-    } catch (error) {
-      this.logger.error('Failed to register with MCP Registry', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      throw error;
-    }
+    // [SECURITY PATCH] Remote registry registration DISABLED
+    this.logger.info('[SECURITY] Registry registration is disabled by security patch');
+    return;
   }
 
   /**
    * Update server metadata in registry
    */
-  async updateMetadata(updates: Partial<MCPRegistryEntry>): Promise<void> {
-    if (!this.config.enabled) {
-      return;
-    }
-
-    try {
-      this.logger.info('Updating server metadata in registry', {
-        server_id: this.config.serverId,
-      });
-
-      const response = await fetch(
-        `${this.registryUrl}/servers/${this.config.serverId}`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.config.apiKey && {
-              'Authorization': `Bearer ${this.config.apiKey}`,
-            }),
-          },
-          body: JSON.stringify(updates),
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Update failed: ${response.status} - ${error}`);
-      }
-
-      this.logger.info('Server metadata updated successfully');
-    } catch (error) {
-      this.logger.error('Failed to update metadata', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+  async updateMetadata(_updates: Partial<MCPRegistryEntry>): Promise<void> {
+    // [SECURITY PATCH] Remote metadata update DISABLED
+    this.logger.info('[SECURITY] Registry metadata update is disabled by security patch');
+    return;
   }
 
   /**
    * Report health status to registry
    */
   async reportHealth(): Promise<void> {
-    if (!this.config.enabled) {
-      return;
-    }
-
-    try {
-      const health = await this.getHealth();
-
-      const response = await fetch(
-        `${this.registryUrl}/servers/${this.config.serverId}/health`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...(this.config.apiKey && {
-              'Authorization': `Bearer ${this.config.apiKey}`,
-            }),
-          },
-          body: JSON.stringify({
-            status: health.status,
-            last_check: new Date().toISOString(),
-            latency_ms: health.latency_ms,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        this.logger.warn('Health report failed', {
-          status: response.status,
-        });
-      }
-    } catch (error) {
-      this.logger.error('Failed to report health', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    // [SECURITY PATCH] Remote health reporting DISABLED
+    return;
   }
 
   /**
    * Search for servers in registry
    */
-  async searchServers(query: RegistrySearchQuery): Promise<MCPRegistryEntry[]> {
-    try {
-      const params = new URLSearchParams();
-
-      if (query.category) {
-        params.set('category', query.category);
-      }
-      if (query.tags) {
-        params.set('tags', query.tags.join(','));
-      }
-      if (query.capabilities) {
-        params.set('capabilities', query.capabilities.join(','));
-      }
-      if (query.limit) {
-        params.set('limit', query.limit.toString());
-      }
-
-      const response = await fetch(`${this.registryUrl}/servers?${params}`);
-
-      if (!response.ok) {
-        throw new Error(`Search failed: ${response.status}`);
-      }
-
-      const results = await response.json();
-      return results.servers || [];
-    } catch (error) {
-      this.logger.error('Failed to search servers', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return [];
-    }
+  async searchServers(_query: RegistrySearchQuery): Promise<MCPRegistryEntry[]> {
+    // [SECURITY PATCH] Remote server search DISABLED
+    this.logger.info('[SECURITY] Registry search is disabled by security patch');
+    return [];
   }
 
   /**
    * Unregister from registry
    */
   async unregister(): Promise<void> {
-    if (!this.config.enabled) {
-      return;
-    }
-
-    // Stop health reporting
+    // [SECURITY PATCH] Remote unregistration DISABLED
     this.stopHealthReporting();
-
-    try {
-      this.logger.info('Unregistering from MCP Registry', {
-        server_id: this.config.serverId,
-      });
-
-      const response = await fetch(
-        `${this.registryUrl}/servers/${this.config.serverId}`,
-        {
-          method: 'DELETE',
-          headers: {
-            ...(this.config.apiKey && {
-              'Authorization': `Bearer ${this.config.apiKey}`,
-            }),
-          },
-        }
-      );
-
-      if (!response.ok) {
-        this.logger.warn('Unregistration failed', {
-          status: response.status,
-        });
-      } else {
-        this.logger.info('Server unregistered successfully');
-      }
-    } catch (error) {
-      this.logger.error('Failed to unregister', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
+    this.logger.info('[SECURITY] Registry unregistration is disabled by security patch');
+    return;
   }
 
   /**

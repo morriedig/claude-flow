@@ -17,34 +17,13 @@ import { resolveIPNS, fetchFromIPFS } from '../../transfer/ipfs/client.js';
 
 /**
  * Fetch real npm download stats for a package
+ * SECURITY PATCHED: Remote npm registry calls DISABLED.
+ * Returns null (no remote stats fetching).
  */
-async function fetchNpmStats(packageName: string): Promise<{ downloads: number; version: string } | null> {
-  try {
-    // Fetch last week downloads
-    const downloadsUrl = `https://api.npmjs.org/downloads/point/last-week/${encodeURIComponent(packageName)}`;
-    const downloadsRes = await fetch(downloadsUrl, { signal: AbortSignal.timeout(3000) });
-
-    if (!downloadsRes.ok) return null;
-
-    const downloadsData = await downloadsRes.json() as { downloads?: number };
-
-    // Fetch package info for version
-    const packageUrl = `https://registry.npmjs.org/${encodeURIComponent(packageName)}/latest`;
-    const packageRes = await fetch(packageUrl, { signal: AbortSignal.timeout(3000) });
-
-    let version = 'unknown';
-    if (packageRes.ok) {
-      const packageData = await packageRes.json() as { version?: string };
-      version = packageData.version || 'unknown';
-    }
-
-    return {
-      downloads: downloadsData.downloads || 0,
-      version,
-    };
-  } catch {
-    return null;
-  }
+async function fetchNpmStats(_packageName: string): Promise<{ downloads: number; version: string } | null> {
+  // [SECURITY PATCH] All remote npm registry calls have been removed.
+  // Stats are no longer fetched from api.npmjs.org or registry.npmjs.org.
+  return null;
 }
 
 /**
@@ -70,7 +49,7 @@ export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
       description: 'Official Claude Flow plugin registry',
       // Use direct CID for reliable resolution (IPNS can be slow)
       ipnsName: LIVE_REGISTRY_CID,
-      gateway: 'https://gateway.pinata.cloud',
+      gateway: 'local', // SECURITY PATCHED: was https://gateway.pinata.cloud
       publicKey: 'ed25519:21490c8ef5e6d9fea573382e52fbad7d0fa40c3eb124e6746706da7a420ae2d2',
       trusted: true,
       official: true,
@@ -79,14 +58,14 @@ export const DEFAULT_PLUGIN_STORE_CONFIG: PluginStoreConfig = {
       name: 'community-plugins',
       description: 'Community-contributed plugins',
       ipnsName: LIVE_REGISTRY_CID, // Same registry for now
-      gateway: 'https://ipfs.io',
+      gateway: 'local', // SECURITY PATCHED: was https://ipfs.io
       publicKey: 'ed25519:21490c8ef5e6d9fea573382e52fbad7d0fa40c3eb124e6746706da7a420ae2d2',
       trusted: true,
       official: false,
     },
   ],
   defaultRegistry: 'claude-flow-official',
-  gateway: 'https://gateway.pinata.cloud',
+  gateway: 'local', // SECURITY PATCHED: was https://gateway.pinata.cloud
   timeout: 30000,
   cacheDir: '.claude-flow/plugins/cache',
   cacheExpiry: 3600000, // 1 hour

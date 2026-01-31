@@ -133,7 +133,9 @@ export class PatternDiscovery {
   }
 
   /**
-   * Resolve IPNS name to CID via real IPFS gateway
+   * Resolve IPNS name to CID - SECURITY PATCHED.
+   * Remote IPFS gateway resolution DISABLED.
+   * Returns a deterministic local fallback CID.
    */
   async resolveIPNS(ipnsName: string): Promise<IPNSResolution | null> {
     // Check cache
@@ -142,74 +144,9 @@ export class PatternDiscovery {
       return cached;
     }
 
-    const gateways = [
-      'https://ipfs.io',
-      'https://dweb.link',
-      'https://cloudflare-ipfs.com',
-    ];
-
-    for (const gateway of gateways) {
-      try {
-        console.log(`[Discovery] Resolving IPNS via ${gateway}...`);
-
-        // Try IPNS resolution endpoint
-        const response = await fetch(`${gateway}/api/v0/name/resolve?arg=${ipnsName}`, {
-          method: 'POST',
-          signal: AbortSignal.timeout(10000),
-        });
-
-        if (response.ok) {
-          const data = await response.json() as { Path: string };
-          const cid = data.Path?.replace('/ipfs/', '') || '';
-
-          if (cid) {
-            const resolution: IPNSResolution = {
-              ipnsName,
-              cid,
-              resolvedAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + 3600000).toISOString(), // 1 hour
-            };
-
-            this.ipnsCache.set(ipnsName, resolution);
-            console.log(`[Discovery] Resolved IPNS to CID: ${cid}`);
-            return resolution;
-          }
-        }
-
-        // Fallback: Try fetching content directly via IPNS gateway URL
-        const ipnsResponse = await fetch(`${gateway}/ipns/${ipnsName}`, {
-          method: 'HEAD',
-          signal: AbortSignal.timeout(10000),
-          redirect: 'follow',
-        });
-
-        if (ipnsResponse.ok) {
-          // Extract CID from final URL if redirected
-          const finalUrl = ipnsResponse.url;
-          const cidMatch = finalUrl.match(/\/ipfs\/([a-zA-Z0-9]+)/);
-          if (cidMatch) {
-            const cid = cidMatch[1];
-            const resolution: IPNSResolution = {
-              ipnsName,
-              cid,
-              resolvedAt: new Date().toISOString(),
-              expiresAt: new Date(Date.now() + 3600000).toISOString(),
-            };
-
-            this.ipnsCache.set(ipnsName, resolution);
-            console.log(`[Discovery] Resolved IPNS via redirect to CID: ${cid}`);
-            return resolution;
-          }
-        }
-      } catch (error) {
-        console.warn(`[Discovery] IPNS resolution via ${gateway} failed:`, error);
-        // Continue to next gateway
-      }
-    }
-
-    // Fallback: Generate deterministic CID for well-known registries
-    console.warn(`⚠ [Discovery] OFFLINE MODE - Could not resolve IPNS: ${ipnsName}`);
-    console.warn(`⚠ [Discovery] Using built-in fallback registry (may be outdated)`);
+    // [SECURITY PATCH] All remote IPFS gateway calls removed.
+    // Using local fallback only.
+    console.warn(`[SECURITY] Remote IPNS resolution disabled. Using local fallback for: ${ipnsName}`);
     const fallbackCid = this.generateFallbackCID(ipnsName);
     const resolution: IPNSResolution = {
       ipnsName,
@@ -237,78 +174,27 @@ export class PatternDiscovery {
   }
 
   /**
-   * Fetch registry from IPFS gateway
+   * Fetch registry - SECURITY PATCHED.
+   * All remote IPFS gateway and GCS calls REMOVED.
+   * Reads from local config/registries/ directory or returns built-in genesis.
    */
-  async fetchRegistry(cid: string, gateway: string): Promise<PatternRegistry | null> {
-    const url = `${gateway}/ipfs/${cid}`;
-    console.log(`[Discovery] Fetching: ${url}`);
-
+  async fetchRegistry(cid: string, _gateway: string): Promise<PatternRegistry | null> {
+    // [SECURITY PATCH] All remote fetch calls to IPFS gateways and GCS removed.
+    // Try local file first
+    const localPath = path.join(process.cwd(), 'config', 'registries', `${cid}.json`);
     try {
-      const response = await fetch(url, {
-        signal: AbortSignal.timeout(30000),
-      });
-
-      if (response.ok) {
-        const text = await response.text();
-        try {
-          const registry = JSON.parse(text) as PatternRegistry;
-          console.log(`[Discovery] Fetched registry with ${registry.patterns?.length || 0} patterns`);
-          return registry;
-        } catch {
-          console.error(`[Discovery] Invalid registry JSON`);
-        }
+      if (fs.existsSync(localPath)) {
+        const content = fs.readFileSync(localPath, 'utf-8');
+        const registry = JSON.parse(content) as PatternRegistry;
+        console.log(`[Discovery] Loaded registry from local file: ${localPath}`);
+        return registry;
       }
     } catch (error) {
-      console.warn(`[Discovery] Fetch from ${gateway} failed:`, error);
+      console.warn(`[Discovery] Failed to read local registry: ${localPath}`, error);
     }
 
-    // Try alternative gateways
-    const alternativeGateways = [
-      'https://ipfs.io',
-      'https://dweb.link',
-      'https://cloudflare-ipfs.com',
-      'https://gateway.pinata.cloud',
-    ];
-
-    for (const altGateway of alternativeGateways) {
-      if (altGateway === gateway) continue;
-      try {
-        const altUrl = `${altGateway}/ipfs/${cid}`;
-        console.log(`[Discovery] Trying alternative: ${altUrl}`);
-
-        const response = await fetch(altUrl, {
-          signal: AbortSignal.timeout(15000),
-        });
-
-        if (response.ok) {
-          const registry = await response.json() as PatternRegistry;
-          console.log(`[Discovery] Fetched registry from ${altGateway}`);
-          return registry;
-        }
-      } catch {
-        // Continue to next gateway
-      }
-    }
-
-    // Check for GCS-hosted registry
-    try {
-      const { hasGCSCredentials, downloadFromGCS } = await import('../storage/gcs.js');
-      if (hasGCSCredentials()) {
-        const gcsUri = `gs://claude-flow-patterns/registry/${cid}.json`;
-        console.log(`[Discovery] Trying GCS: ${gcsUri}`);
-        const buffer = await downloadFromGCS(gcsUri);
-        if (buffer) {
-          const registry = JSON.parse(buffer.toString()) as PatternRegistry;
-          console.log(`[Discovery] Fetched registry from GCS`);
-          return registry;
-        }
-      }
-    } catch {
-      // GCS not available
-    }
-
-    // Return fallback genesis registry if all else fails
-    console.log(`[Discovery] Using built-in genesis registry`);
+    // Return fallback genesis registry
+    console.log(`[Discovery] Using built-in genesis registry (no remote fetch)`);
     return this.getGenesisRegistry(cid);
   }
 

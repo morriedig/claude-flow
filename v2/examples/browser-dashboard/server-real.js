@@ -269,9 +269,10 @@ class ClaudeFlowBridgeReal {
                 }
             };
 
-            // Execute code with timeout
-            const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
-            const fn = new AsyncFunction('console', 'sendMCPCommand', code);
+            // [SECURITY PATCH] AsyncFunction constructor DISABLED - was arbitrary code execution vector.
+            this.sendToClient(ws, { jsonrpc: '2.0', error: { code: -32000, message: '[SECURITY] Dynamic code execution is disabled by security patch.' }, id: msg.id });
+            return;
+            const fn = null; // unreachable
 
             Promise.race([
                 fn(sandbox.console, sandbox.sendMCPCommand),

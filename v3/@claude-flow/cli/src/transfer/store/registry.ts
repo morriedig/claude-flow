@@ -21,12 +21,13 @@ export const REGISTRY_VERSION = '1.0.0';
 /**
  * Default bootstrap registries for discovery
  */
+// SECURITY PATCHED: Remote IPFS gateways replaced with 'local'
 export const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
   {
     name: 'claude-flow-official',
     description: 'Official Claude Flow pattern registry',
     ipnsName: 'k51qzi5uqu5dj0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8t9u0v',
-    gateway: 'https://w3s.link',
+    gateway: 'local', // SECURITY PATCH: was 'https://w3s.link'
     publicKey: 'ed25519:claude-flow-registry-key',
     trusted: true,
   },
@@ -34,7 +35,7 @@ export const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
     name: 'community-patterns',
     description: 'Community-contributed patterns',
     ipnsName: 'k51qzi5uqu5dkkph0w8q1xvqn8ql2g4p7x8qpk9vz3xm1y2n3o4p5q6r7s8',
-    gateway: 'https://dweb.link',
+    gateway: 'local', // SECURITY PATCH: was 'https://dweb.link'
     publicKey: 'ed25519:community-registry-key',
     trusted: false,
   },
@@ -46,7 +47,7 @@ export const BOOTSTRAP_REGISTRIES: KnownRegistry[] = [
 export const DEFAULT_STORE_CONFIG: StoreConfig = {
   registries: BOOTSTRAP_REGISTRIES,
   defaultRegistry: 'claude-flow-official',
-  gateway: 'https://w3s.link',
+  gateway: 'local', // SECURITY PATCH: was 'https://w3s.link'
   timeout: 30000,
   cacheDir: '.claude-flow/patterns/cache',
   cacheExpiry: 3600000, // 1 hour

@@ -162,78 +162,27 @@ export class PatternDownloader {
       return this.fetchFromGCS(cid, onProgress);
     }
 
-    const url = `${this.config.gateway}/ipfs/${cid}`;
-    console.log(`[Download] Fetching: ${url}`);
+    // [SECURITY PATCH] All remote IPFS gateway fetch calls REMOVED.
+    // Reads from local config/registries/ directory only.
+    const localPath = require('path').join(process.cwd(), 'config', 'registries', `${cid}.json`);
+    console.log(`[Download] [SECURITY] Remote IPFS fetch disabled. Trying local: ${localPath}`);
 
     try {
-      // Real HTTP fetch with progress
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        console.error(`[Download] HTTP ${response.status}: ${response.statusText}`);
-        return null;
-      }
-
-      const contentLength = parseInt(response.headers.get('content-length') || '0', 10);
-
-      // Stream the response for progress tracking
-      if (response.body && onProgress && contentLength > 0) {
-        const reader = response.body.getReader();
-        const chunks: Uint8Array[] = [];
-        let downloaded = 0;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          chunks.push(value);
-          downloaded += value.length;
-          onProgress({
-            bytesDownloaded: downloaded,
-            totalBytes: contentLength,
-            percentage: Math.round((downloaded / contentLength) * 100),
-          });
+      const fs = require('fs');
+      if (fs.existsSync(localPath)) {
+        const buffer = fs.readFileSync(localPath);
+        console.log(`[Download] Loaded ${buffer.length} bytes from local file`);
+        if (onProgress) {
+          onProgress({ bytesDownloaded: buffer.length, totalBytes: buffer.length, percentage: 100 });
         }
-
-        const buffer = Buffer.concat(chunks.map(c => Buffer.from(c)));
-        console.log(`[Download] Downloaded ${buffer.length} bytes from IPFS gateway`);
         return buffer;
       }
-
-      // Fallback for responses without content-length or progress
-      const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
-      console.log(`[Download] Downloaded ${buffer.length} bytes from IPFS gateway`);
-      return buffer;
     } catch (error) {
-      console.error(`[Download] Fetch failed:`, error);
-
-      // Try alternative gateways
-      const alternativeGateways = [
-        'https://ipfs.io',
-        'https://cloudflare-ipfs.com',
-        'https://dweb.link',
-        'https://gateway.pinata.cloud',
-      ];
-
-      for (const gateway of alternativeGateways) {
-        if (gateway === this.config.gateway) continue;
-        try {
-          console.log(`[Download] Trying alternative gateway: ${gateway}`);
-          const altResponse = await fetch(`${gateway}/ipfs/${cid}`);
-          if (altResponse.ok) {
-            const arrayBuffer = await altResponse.arrayBuffer();
-            const buffer = Buffer.from(arrayBuffer);
-            console.log(`[Download] Downloaded ${buffer.length} bytes from ${gateway}`);
-            return buffer;
-          }
-        } catch {
-          // Continue to next gateway
-        }
-      }
-
-      return null;
+      console.error(`[Download] Local file read failed:`, error);
     }
+
+    // [SECURITY PATCH] No remote gateway fallback. Return null.
+    return null;
   }
 
   /**

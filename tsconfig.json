@@ -20,10 +20,28 @@
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
     "noImplicitAny": false,
+    "baseUrl": ".",
     "paths": {
-      "@v3/*": ["./v3/*"]
-    },
-    "baseUrl": "."
+      "@v3/*": ["./v3/*"],
+      "@claude-flow/aidefence": ["./v3/@claude-flow/aidefence/src"],
+      "@claude-flow/browser": ["./v3/@claude-flow/browser/src"],
+      "@claude-flow/claims": ["./v3/@claude-flow/claims/src"],
+      "@claude-flow/cli": ["./v3/@claude-flow/cli/src"],
+      "@claude-flow/deployment": ["./v3/@claude-flow/deployment/src"],
+      "@claude-flow/embeddings": ["./v3/@claude-flow/embeddings/src"],
+      "@claude-flow/hooks": ["./v3/@claude-flow/hooks/src"],
+      "@claude-flow/integration": ["./v3/@claude-flow/integration/src"],
+      "@claude-flow/mcp": ["./v3/@claude-flow/mcp/src"],
+      "@claude-flow/memory": ["./v3/@claude-flow/memory/src"],
+      "@claude-flow/neural": ["./v3/@claude-flow/neural/src"],
+      "@claude-flow/performance": ["./v3/@claude-flow/performance/src"],
+      "@claude-flow/plugins": ["./v3/@claude-flow/plugins/src"],
+      "@claude-flow/providers": ["./v3/@claude-flow/providers/src"],
+      "@claude-flow/security": ["./v3/@claude-flow/security/src"],
+      "@claude-flow/shared": ["./v3/@claude-flow/shared/src"],
+      "@claude-flow/swarm": ["./v3/@claude-flow/swarm/src"],
+      "@claude-flow/testing": ["./v3/@claude-flow/testing/src"]
+    }
   },
   "include": [
     "v3/**/*.ts"
@@ -33,6 +51,13 @@
     "dist",
     "**/*.test.ts",
     "**/*.bench.ts",
-    "v3/__tests__/**/*.ts"
+    "**/examples/**/*.ts",
+    "**/__tests__/**/*.ts",
+    "v3/__tests__/**/*.ts",
+    "v3/@claude-flow/testing/**/*.ts",
+    "v3/plugins/**/*.ts",
+    "v3/index.ts",
+    "v3/mcp/**/*.ts",
+    "v3/swarm.config.ts"
   ]
 }

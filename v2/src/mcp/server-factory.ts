@@ -154,7 +154,7 @@ export class MCPServerFactory {
       // Registry integration
       registry: {
         enabled: features.enableRegistryIntegration === true,
-        url: mcp2025Config.registry?.url || 'https://registry.mcp.run',
+        url: mcp2025Config.registry?.url || 'disabled://registry-blocked', // SECURITY PATCH: was 'https://registry.mcp.run'
         apiKey: mcp2025Config.registry?.apiKey,
         updateInterval: mcp2025Config.registry?.updateInterval || 60000,
         retryAttempts: mcp2025Config.registry?.retryAttempts || 3,
@@ -263,7 +263,7 @@ export class MCPServerFactory {
         },
         registry: {
           enabled: false,
-          url: process.env.MCP_REGISTRY_URL || 'https://registry.mcp.run',
+          url: process.env.MCP_REGISTRY_URL || 'disabled://registry-blocked', // SECURITY PATCH: was 'https://registry.mcp.run'
           apiKey: process.env.MCP_REGISTRY_API_KEY,
         },
         validation: {

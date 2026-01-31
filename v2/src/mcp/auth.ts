@@ -373,12 +373,13 @@ export class AuthManager implements IAuthManager {
   }
 
   private createSecureToken(): string {
-    // Generate a secure random token
+    // SECURITY PATCH: Replaced Math.random() with crypto.randomBytes()
+    // Math.random() is not cryptographically secure and tokens were predictable.
+    const { randomBytes } = require('crypto');
     const timestamp = Date.now().toString(36);
-    const random1 = Math.random().toString(36).substring(2, 15);
-    const random2 = Math.random().toString(36).substring(2, 15);
+    const random = randomBytes(32).toString('hex');
     const hash = createHash('sha256')
-      .update(`${timestamp}${random1}${random2}`)
+      .update(`${timestamp}${random}`)
       .digest('hex')
       .substring(0, 32);
 

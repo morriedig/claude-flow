@@ -12,6 +12,17 @@ import * as path from 'path';
 import { execSync, exec } from 'child_process';
 
 /**
+ * [SECURITY PATCH] Sanitize shell argument to prevent injection
+ * Only allows alphanumeric, dashes, underscores, dots, slashes, colons, and equals
+ */
+function sanitizeShellArg(arg: string): string {
+  if (!/^[a-zA-Z0-9\-_./=:@,{} ]+$/.test(arg)) {
+    throw new Error(`[SECURITY] Potentially unsafe shell argument rejected: ${arg.slice(0, 50)}`);
+  }
+  return arg;
+}
+
+/**
  * GCS configuration
  */
 export interface GCSConfig {
@@ -120,19 +131,29 @@ export async function uploadToGCS(
           .join(' ')
       : '';
 
-    const projectArg = config.projectId ? `--project=${config.projectId}` : '';
+    const projectArg = config.projectId ? `--project=${sanitizeShellArg(config.projectId)}` : '';
+
+    // [SECURITY PATCH] Sanitize all shell arguments to prevent injection
+    const safeBucket = sanitizeShellArg(config.bucket);
+    const safeObjectPath = sanitizeShellArg(objectPath);
+    const safeContentType = sanitizeShellArg(options.contentType || 'application/json');
 
     // Upload using gcloud storage cp
-    const cmd = `gcloud storage cp "${tempFile}" "gs://${config.bucket}/${objectPath}" ${projectArg} --content-type="${options.contentType || 'application/json'}" 2>&1`;
+    const cmd = `gcloud storage cp "${tempFile}" "gs://${safeBucket}/${safeObjectPath}" ${projectArg} --content-type="${safeContentType}" 2>&1`;
 
     execSync(cmd, { encoding: 'utf-8' });
 
     // Set metadata if provided
     if (options.metadata && Object.keys(options.metadata).length > 0) {
+      // [SECURITY PATCH] Validate metadata keys/values before shell interpolation
+      for (const [k, v] of Object.entries(options.metadata)) {
+        sanitizeShellArg(k);
+        sanitizeShellArg(v);
+      }
       const metadataJson = JSON.stringify(options.metadata);
       try {
         execSync(
-          `gcloud storage objects update "gs://${config.bucket}/${objectPath}" --custom-metadata='${metadataJson}' ${projectArg} 2>&1`,
+          `gcloud storage objects update "gs://${safeBucket}/${safeObjectPath}" --custom-metadata='${metadataJson.replace(/'/g, "\\'")}' ${projectArg} 2>&1`,
           { encoding: 'utf-8' }
         );
       } catch {
@@ -174,7 +195,7 @@ export async function downloadFromGCS(
   config?: GCSConfig
 ): Promise<Buffer | null> {
   const cfg = config || getGCSConfig();
-  const projectArg = cfg?.projectId ? `--project=${cfg.projectId}` : '';
+  const projectArg = cfg?.projectId ? `--project=${sanitizeShellArg(cfg.projectId)}` : '';
 
   console.log(`[GCS] Downloading from ${uri}...`);
 
@@ -183,9 +204,12 @@ export async function downloadFromGCS(
   const tempFile = path.join(tempDir, `claude-flow-download-${Date.now()}.json`);
 
   try {
+    // [SECURITY PATCH] Sanitize URI before shell interpolation
+    const safeUri = sanitizeShellArg(uri);
+
     // Download using gcloud storage cp
     execSync(
-      `gcloud storage cp "${uri}" "${tempFile}" ${projectArg} 2>&1`,
+      `gcloud storage cp "${safeUri}" "${tempFile}" ${projectArg} 2>&1`,
       { encoding: 'utf-8' }
     );
 
@@ -212,11 +236,13 @@ export async function existsInGCS(
   config?: GCSConfig
 ): Promise<boolean> {
   const cfg = config || getGCSConfig();
-  const projectArg = cfg?.projectId ? `--project=${cfg.projectId}` : '';
+  const projectArg = cfg?.projectId ? `--project=${sanitizeShellArg(cfg.projectId)}` : '';
 
   try {
+    // [SECURITY PATCH] Sanitize URI
+    const safeUri = sanitizeShellArg(uri);
     execSync(
-      `gcloud storage ls "${uri}" ${projectArg} 2>&1`,
+      `gcloud storage ls "${safeUri}" ${projectArg} 2>&1`,
       { encoding: 'utf-8', stdio: 'pipe' }
     );
     return true;
@@ -240,8 +266,10 @@ export async function listGCSObjects(
   const uri = `gs://${cfg.bucket}/${objectPrefix}`;
 
   try {
+    // [SECURITY PATCH] Sanitize URI
+    const safeUri = sanitizeShellArg(uri);
     const result = execSync(
-      `gcloud storage ls -l "${uri}" ${projectArg} --format=json 2>&1`,
+      `gcloud storage ls -l "${safeUri}" ${projectArg} --format=json 2>&1`,
       { encoding: 'utf-8' }
     );
 
@@ -264,11 +292,13 @@ export async function deleteFromGCS(
   config?: GCSConfig
 ): Promise<boolean> {
   const cfg = config || getGCSConfig();
-  const projectArg = cfg?.projectId ? `--project=${cfg.projectId}` : '';
+  const projectArg = cfg?.projectId ? `--project=${sanitizeShellArg(cfg.projectId)}` : '';
 
   try {
+    // [SECURITY PATCH] Sanitize URI
+    const safeUri = sanitizeShellArg(uri);
     execSync(
-      `gcloud storage rm "${uri}" ${projectArg} 2>&1`,
+      `gcloud storage rm "${safeUri}" ${projectArg} 2>&1`,
       { encoding: 'utf-8' }
     );
     return true;

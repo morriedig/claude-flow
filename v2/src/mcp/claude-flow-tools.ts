@@ -1177,62 +1177,28 @@ function createListWorkflowsTool(logger: ILogger): MCPTool {
   };
 }
 
+// SECURITY PATCH: terminal/execute tool REMOVED.
+// This was a critical RCE vector allowing arbitrary shell command execution
+// with custom environment variables and working directory.
+// All shell execution must go through Claude Code's Bash tool with manual approval.
 function createExecuteCommandTool(logger: ILogger): MCPTool {
   return {
     name: 'terminal/execute',
-    description: 'Execute a command in a terminal session',
+    description: '[DISABLED BY SECURITY PATCH] Terminal execution is disabled.',
     inputSchema: {
       type: 'object',
       properties: {
-        command: {
-          type: 'string',
-          description: 'Command to execute',
-        },
-        args: {
-          type: 'array',
-          items: { type: 'string' },
-          description: 'Command arguments',
-        },
-        cwd: {
-          type: 'string',
-          description: 'Working directory for the command',
-        },
-        env: {
-          type: 'object',
-          description: 'Environment variables',
-        },
-        timeout: {
-          type: 'number',
-          default: 30000,
-          description: 'Command timeout in milliseconds',
-        },
-        terminalId: {
-          type: 'string',
-          description: 'Specific terminal ID to use',
-        },
+        command: { type: 'string', description: 'Command (blocked)' },
       },
       required: ['command'],
     },
-    handler: async (input: any, context?: ClaudeFlowToolContext) => {
-      logger.info('Executing command', { input, sessionId: context?.sessionId });
-
-      if (!context?.orchestrator) {
-        throw new Error('Orchestrator not available');
-      }
-
-      const result = await context.orchestrator.executeCommand({
-        command: input.command,
-        args: input.args,
-        cwd: input.cwd,
-        env: input.env,
-        timeout: input.timeout || 30000,
-        terminalId: input.terminalId,
-      });
-
-      return {
-        ...result,
-        timestamp: new Date().toISOString(),
-      };
+    handler: async (_input: any) => {
+      logger.warn('[SECURITY] terminal/execute is disabled by security patch.');
+      throw new Error(
+        '[SECURITY PATCH] terminal/execute tool is disabled. ' +
+        'Shell execution must use Claude Code Bash tool with manual approval. ' +
+        '--auto mode is not allowed.'
+      );
     },
   };
 }
@@ -1417,7 +1383,7 @@ function createQueryControlTool(logger: ILogger): MCPTool {
       properties: {
         action: {
           type: 'string',
-          enum: ['pause', 'resume', 'terminate', 'change_model', 'change_permissions', 'execute_command'],
+          enum: ['pause', 'resume', 'terminate', 'change_model'], // SECURITY PATCH: removed 'change_permissions', 'execute_command'
           description: 'Control action to perform',
         },
         queryId: {
@@ -1429,15 +1395,9 @@ function createQueryControlTool(logger: ILogger): MCPTool {
           enum: ['claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022', 'claude-3-opus-20240229'],
           description: 'Model to switch to (for change_model action)',
         },
-        permissionMode: {
-          type: 'string',
-          enum: ['default', 'acceptEdits', 'bypassPermissions', 'plan'],
-          description: 'Permission mode to switch to (for change_permissions action)',
-        },
-        command: {
-          type: 'string',
-          description: 'Command to execute (for execute_command action)',
-        },
+        // SECURITY PATCH: permissionMode and command properties REMOVED.
+        // 'bypassPermissions' mode was a privilege escalation vector.
+        // 'execute_command' was an arbitrary RCE vector.
       },
       required: ['action', 'queryId'],
     },
@@ -1474,18 +1434,8 @@ function createQueryControlTool(logger: ILogger): MCPTool {
           }
           result = await controller.changeModel(input.queryId, input.model);
           break;
-        case 'change_permissions':
-          if (!input.permissionMode) {
-            throw new Error('permissionMode parameter required for change_permissions action');
-          }
-          result = await controller.changePermissionMode(input.queryId, input.permissionMode);
-          break;
-        case 'execute_command':
-          if (!input.command) {
-            throw new Error('command parameter required for execute_command action');
-          }
-          result = await controller.executeCommand(input.queryId, input.command);
-          break;
+        // SECURITY PATCH: 'change_permissions' and 'execute_command' cases REMOVED.
+        // These were RCE and privilege escalation vectors.
         default:
           throw new Error(`Unknown action: ${input.action}`);
       }
