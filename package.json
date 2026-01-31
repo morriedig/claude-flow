@@ -53,25 +53,26 @@
   },
   "optionalDependencies": {
     "@claude-flow/plugin-gastown-bridge": "^0.1.0",
-    "agentdb": "2.0.0-alpha.3.4",
-    "bcrypt": "^5.1.1",
     "@ruvector/attention": "^0.1.3",
     "@ruvector/core": "^0.1.30",
     "@ruvector/router": "^0.1.27",
     "@ruvector/router-linux-x64-gnu": "^0.1.27",
     "@ruvector/sona": "^0.1.5",
-    "agentic-flow": "^2.0.1-alpha.80"
+    "agentdb": "2.0.0-alpha.3.4",
+    "agentic-flow": "^2.0.1-alpha.80",
+    "bcrypt": "^6.0.0"
   },
   "overrides": {
-    "hono": ">=4.11.4"
+    "hono": ">=4.11.4",
+    "tar": ">=7.5.7"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
     "@types/node": "^20.0.0",
-    "eslint": "^8.0.0",
+    "eslint": "^9.39.2",
     "tsx": "^4.21.0",
     "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+    "vitest": "^4.0.18"
   },
   "engines": {
     "node": ">=20.0.0"
