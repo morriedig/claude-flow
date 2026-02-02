@@ -23,6 +23,97 @@
 
 </div>
 
+---
+
+## 團隊快速上手指南 (MCP + Claude Code)
+
+本節說明如何在本機將 claude-flow 作為 MCP server 搭配 Claude Code 使用。
+
+### 環境需求
+
+- **Node.js** >= 20
+- **Claude Code** CLI（已安裝並登入）
+- **Git**
+
+### 1. Clone 並 Build
+
+```bash
+git clone git@github.com:morriedig/claude-flow.git
+cd claude-flow
+
+# 安裝根目錄依賴
+npm install
+
+# 安裝 v3 monorepo 依賴
+cd v3
+pnpm install
+
+# Build 所有套件
+pnpm run build
+```
+
+### 2. 加入 MCP Server
+
+```bash
+claude mcp add claude-flow -- node /你的路徑/claude-flow/v3/@claude-flow/cli/bin/mcp-server.js
+```
+
+> 用你自己的實際路徑取代 `/你的路徑/`。加完後用 `claude mcp list` 確認。
+
+### 3. 驗證
+
+重新啟動 Claude Code，MCP server 會自動啟動。在對話中使用 MCP 工具時，Claude Code 會透過 stdio 與 server 溝通。
+
+### 4. MCP 提供的工具分類
+
+加入後，Claude Code 會多出以下 MCP 工具可用：
+
+| 分類 | 工具 | 用途 |
+|------|------|------|
+| **Agent** | `agent_spawn`, `agent_list`, `agent_status`, `agent_terminate` | 管理 AI agent 生命週期 |
+| **Swarm** | `swarm_init`, `swarm_status`, `swarm_scale` | 多 agent 協同編排 |
+| **Memory** | `memory_store`, `memory_search`, `memory_list`, `memory_retrieve` | 跨 session 記憶與向量搜尋 |
+| **Task** | `task_create`, `task_assign`, `task_status` | 任務分配與追蹤 |
+| **Session** | `session_start`, `session_end`, `session_restore` | Session 管理與狀態持久化 |
+| **Hooks** | `hooks_route`, `hooks_pretrain`, `hooks_metrics` | 智慧路由與自動學習 |
+| **Security** | `security_scan`, `security_audit` | 安全掃描 |
+| **GitHub** | `github_pr_manage`, `github_code_review` | GitHub 整合 |
+
+### 5. 日常使用方式
+
+MCP 工具負責**協調**，Claude Code 負責**執行**。你不需要手動呼叫 MCP 工具，Claude Code 會在適當時機自動使用。
+
+典型使用流程：
+
+1. 啟動 Claude Code
+2. 描述你的任務（例如「幫我重構 auth 模組」）
+3. Claude Code 自動透過 MCP 初始化 swarm、分配 agent
+4. Agent 協同完成工作，結果存入 memory
+
+### 6. 更新流程
+
+當有人 push 新版本時：
+
+```bash
+git pull
+cd v3 && pnpm install && pnpm run build
+```
+
+不需要重新 `claude mcp add`，因為 MCP 指向的是本地檔案，build 完就是新版。
+
+### 7. 常見問題
+
+**Q: MCP server 沒反應？**
+確認 build 有成功：`cd v3 && pnpm run build`，看有沒有 TypeScript 錯誤。
+
+**Q: 工具清單是空的？**
+確認 `claude mcp list` 有顯示 `claude-flow`，如果沒有就重新 `claude mcp add`。
+
+**Q: 需要設定 API key 嗎？**
+MCP server 本身不需要。但如果你要用 AI provider 功能（如 embedding），需要在環境變數設定 `ANTHROPIC_API_KEY`。
+
+---
+
 ## Getting into the Flow
 
 Claude-Flow is a comprehensive AI agent orchestration framework that transforms Claude Code into a powerful multi-agent development platform. It enables teams to deploy, coordinate, and optimize specialized AI agents working together on complex software engineering tasks.
